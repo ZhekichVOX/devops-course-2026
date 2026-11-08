@@ -29,5 +29,22 @@ check "Политика входящего трафика: deny" "deny" "$(sudo 
 echo "[3] Учётные записи"
 awk -F: '$3>=1000 && $3<65534 {printf "              %s (uid=%s)\n",$1,$3}' /etc/passwd
 
+echo "[4] Веб-сервер"
+CERT_MIN_DAYS="${CERT_MIN_DAYS:-30}"
+NGINX_RC=0
+sudo nginx -t >/dev/null 2>&1 || NGINX_RC=$?
+CERT_RC=0
+openssl x509 -in /etc/ssl/certs/devops.crt -noout -checkend "$((CERT_MIN_DAYS * 86400))" >/dev/null 2>&1 || CERT_RC=$?
+WRITABLE="$(find /var/www/devops-site -perm -o+w 2>/dev/null)"
+KEY_MODE="$(sudo stat -c '%a' /etc/ssl/private/devops.key 2>/dev/null)"
+if [[ -z "$WRITABLE" && "$KEY_MODE" == "600" ]]; then
+  FILES_RESULT="ok"
+else
+  FILES_RESULT="файлы с записью для всех: '${WRITABLE:-нет}', права ключа: '${KEY_MODE:-нет}'"
+fi
+check "Служба nginx активна" "active" "$(systemctl is-active nginx)"
+check "Конфигурация nginx корректна (nginx -t)" "0" "$NGINX_RC"
+check "Сертификат действует ещё не менее ${CERT_MIN_DAYS} дн." "0" "$CERT_RC"
+check "Нет файлов с записью для всех, права ключа 600" "ok" "$FILES_RESULT"
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
