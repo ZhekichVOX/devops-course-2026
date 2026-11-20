@@ -110,3 +110,20 @@
 - Межсетевой экран: порты 80/tcp и 443/tcp разрешены правилами из раздела 6.
 - Заголовок HSTS не добавляется (самоподписанный сертификат).
 - Снимок состояния: 04-nginx-https.
+
+## 9. Контейнеризация
+
+Docker Engine 29.10.0 и Compose v5.8.0 установлены из официального APT-репозитория Docker для Ubuntu 24.04.
+В группу docker входит devops.
+
+На ВМ проект расположен в ~/app. Файл ~/app/.env создаётся на ВМ из .env.example со случайным паролем и правами 600.
+Для запуска выполните docker compose up -d --build --wait в ~/app.
+
+Контейнер приложения использует пользователя app. Порт 5000 опубликован только на 127.0.0.1.
+PostgreSQL доступен приложению по имени db в сети app_backend. Его порт 5432 на ВМ не опубликован.
+Данные PostgreSQL хранятся в именованном томе app_db_data.
+
+HTTPS-сайт devops.local обслуживает Nginx. В блоке HTTPS файла /etc/nginx/sites-available/devops-site
+маршрут /app/ передаёт запросы на http://127.0.0.1:5000/ с заголовками
+Host, X-Real-IP, X-Forwarded-For и X-Forwarded-Proto.
+После изменения конфигурации выполните sudo nginx -t и sudo systemctl reload nginx.

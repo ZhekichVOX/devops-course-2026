@@ -46,5 +46,12 @@ check "Служба nginx активна" "active" "$(systemctl is-active nginx)
 check "Конфигурация nginx корректна (nginx -t)" "0" "$NGINX_RC"
 check "Сертификат действует ещё не менее ${CERT_MIN_DAYS} дн." "0" "$CERT_RC"
 check "Нет файлов с записью для всех, права ключа 600" "ok" "$FILES_RESULT"
+echo "[5] Контейнеризация"
+check "Служба docker активна" "active" "$(systemctl is-active docker)"
+check "PostgreSQL готов к подключениям" "healthy" "$(docker inspect -f '{{.State.Health.Status}}' app-db-1 2>/dev/null)"
+UNEXPECTED_PORTS="$(ss -H -tln | awk '$4 ~ /:(5000|5432)$/ && $4 !~ /^127[.]0[.]0[.]1:/ {print $4}')" || UNEXPECTED_PORTS="ошибка ss"
+check "Порты 5000 и 5432 не открыты на внешних адресах" "" "$UNEXPECTED_PORTS"
+check "Права файла ~/app/.env" "600" "$(stat -c '%a' "$HOME/app/.env" 2>/dev/null)"
+
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
